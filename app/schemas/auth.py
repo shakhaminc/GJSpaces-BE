@@ -11,10 +11,8 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
+    message: str = Field("Authentication successful.", example="Authentication successful.")
     access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: UserResponse
 
 
 class CurrentUser(BaseModel):

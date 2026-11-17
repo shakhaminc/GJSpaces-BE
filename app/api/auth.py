@@ -14,7 +14,7 @@ from app.services.user_service import authenticate_user, serialize_user
 router = APIRouter(prefix="/auth", tags=["Authentication & Session"])
 
 
-@router.post("/login", response_model=ResponseEnvelope[TokenResponse])
+@router.post("/login", response_model=TokenResponse)
 async def login(
     credentials: LoginRequest,
     db: AsyncSession = Depends(get_db)
@@ -34,16 +34,10 @@ async def login(
         )
 
     access_token = create_access_token(subject=user.id)
-    serialized = serialize_user(user)
 
-    return ResponseEnvelope(
+    return TokenResponse(
         message="Authentication successful.",
-        data=TokenResponse(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            user=serialized
-        )
+        access_token=access_token
     )
 
 
