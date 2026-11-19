@@ -47,6 +47,12 @@ On server startup, the database automatically initializes the default roles and 
 | `GET` | `/users` | Super Admin, Manager | List all workforce users (with filters) |
 | `GET` | `/users/{user_id}` | Super Admin, Manager | Retrieve user details by UUID |
 | `DELETE` | `/users/{user_id}` | Super Admin | Soft delete user |
+| `POST` | `/attendance/mark-present` | Super Admin, Manager, Employee | Mark present for today & capture `login_time` |
+| `PUT` | `/attendance/tasks` | Super Admin, Manager, Employee | Upload / update today's `to_do_list` |
+| `POST` | `/attendance/logout` | Super Admin, Manager, Employee | Clock out & capture `logout_time` |
+| `GET` | `/attendance/today` | Super Admin, Manager, Employee | View today's attendance record & tasks |
+| `GET` | `/attendance/my-history` | Super Admin, Manager, Employee | View own historical attendance logs |
+| `GET` | `/attendance` | Super Admin, Manager | View all workforce attendance with user info |
 
 ---
 
@@ -405,55 +411,311 @@ curl -X DELETE "http://localhost:8000/users/7b0a7082-f54e-4e31-8bc4-72945d8b8a01
 
 ---
 
+### 3.4 Attendance & Daily Tasks (`/attendance`)
+
+---
+
+#### `POST /attendance/mark-present`
+Employee marks their attendance as present for today, capturing `login_time`. Optionally accepts `to_do` or `to_do_list`.
+
+- **Access:** Any authenticated user (`Super Admin`, `Manager`, `Employee`)
+- **Headers:** 
+  - `Content-Type: application/json` (optional if passing body)
+  - `Authorization: Bearer <access_token>`
+- **Request Body Fields (All Optional):**
+  - `to_do` (string, optional): Initial daily tasks or to-do list for today.
+  - `to_do_list` (string, optional): Alias for `to_do`.
+
+**Sample Request Body (Optional - leave empty `{}` or omit if no to-do yet):**
+```json
+{
+  "to_do": "1. Review sprint tasks\n2. Work on CRM attendance module"
+}
+```
+
+**Response `201 Created`:**
+```json
+{
+  "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "user_id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
+  "login_time": "2026-11-19T09:30:00Z",
+  "logout_time": null,
+  "to_do_list": "1. Review sprint tasks\n2. Work on CRM attendance module"
+}
+```
+
+**Common Error Responses:**
+- `400 Bad Request` (Attempting to mark present after already checking out):
+  ```json
+  {
+    "detail": "You have already checked out for today at 18:00:00. Cannot mark attendance again today."
+  }
+  ```
+- `409 Conflict` (Attempting to mark present multiple times):
+  ```json
+  {
+    "detail": "Attendance already marked present for today at 09:30:00. Attendance can only be marked once per day."
+  }
+  ```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:8000/attendance/mark-present" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+#### `PUT /attendance/tasks`
+Submits or updates the employee's daily `to_do_list` / task deliverables for today's active attendance record.
+
+- **Access:** Any authenticated user (`Super Admin`, `Manager`, `Employee`)
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <access_token>`
+- **Request Body Fields:**
+  - `to_do_list` (string, required): Summary or bullet points of daily tasks / deliverables.
+
+**Sample Request Body:**
+```json
+{
+  "to_do_list": "1. Implemented attendance API module\n2. Tested mark-present and logout flows\n3. Updated documentation"
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "user_id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
+  "login_time": "2026-11-19T09:30:00Z",
+  "logout_time": null,
+  "to_do_list": "1. Implemented attendance API module\n2. Tested mark-present and logout flows\n3. Updated documentation"
+}
+```
+
+**Common Error Responses:**
+- `400 Bad Request` (Empty task content):
+  ```json
+  {
+    "detail": "Task content cannot be empty."
+  }
+  ```
+- `400 Bad Request` (Attempting to update tasks after check-out):
+  ```json
+  {
+    "detail": "Cannot update tasks after check-out. You have already logged out today at 18:00:00."
+  }
+  ```
+- `404 Not Found`:
+  ```json
+  {
+    "detail": "No attendance record found for today. Please mark present first."
+  }
+  ```
+
+**cURL Example:**
+```bash
+curl -X PUT "http://localhost:8000/attendance/tasks" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <access_token>" \
+  -d '{
+    "to_do_list": "1. Implemented attendance API\n2. Verified database schema"
+  }'
+```
+
+---
+
+#### `POST /attendance/logout`
+Clocks out the employee for the workday, capturing the `logout_time`.
+
+- **Access:** Any authenticated user (`Super Admin`, `Manager`, `Employee`)
+- **Headers:** 
+  - `Authorization: Bearer <access_token>`
+- **Request Body:** None
+
+**Response `200 OK`:**
+```json
+{
+  "message": "Logged out successfully.",
+  "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "login_time": "2026-11-19T09:30:00Z",
+  "logout_time": "2026-11-19T18:00:00Z",
+  "to_do_list": "1. Implemented attendance API module\n2. Tested mark-present and logout flows\n3. Updated documentation"
+}
+```
+
+**Common Error Responses:**
+- `400 Bad Request` (Already checked out):
+  ```json
+  {
+    "detail": "Already logged out today at 18:00:00. You cannot check out multiple times."
+  }
+  ```
+- `404 Not Found` (Never marked present today):
+  ```json
+  {
+    "detail": "No attendance record found for today. You must mark present before checking out."
+  }
+  ```
+- `400 Bad Request` (Already clocked out):
+  ```json
+  {
+    "detail": "Already logged out today at 18:00:00 UTC."
+  }
+  ```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:8000/attendance/logout" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+#### `GET /attendance/today`
+Retrieves the logged-in employee's active attendance record and tasks for today.
+
+- **Access:** Any authenticated user (`Super Admin`, `Manager`, `Employee`)
+- **Headers:** 
+  - `Authorization: Bearer <access_token>`
+- **Request Body:** None
+
+**Response `200 OK`:**
+```json
+{
+  "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "user_id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
+  "login_time": "2026-11-19T09:30:00Z",
+  "logout_time": "2026-11-19T18:00:00Z",
+  "to_do_list": "1. Implemented attendance API module\n2. Tested mark-present and logout flows\n3. Updated documentation"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:8000/attendance/today" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+#### `GET /attendance/my-history`
+Retrieves the logged-in employee's past attendance records.
+
+- **Access:** Any authenticated user (`Super Admin`, `Manager`, `Employee`)
+- **Headers:** 
+  - `Authorization: Bearer <access_token>`
+- **Query Parameters (Optional):**
+  - `limit` (integer, default `30`, min `1`, max `100`): Max records to return.
+- **Request Body:** None
+
+**Response `200 OK`:**
+```json
+[
+  {
+    "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "user_id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
+    "login_time": "2026-11-19T09:30:00Z",
+    "logout_time": "2026-11-19T18:00:00Z",
+    "to_do_list": "1. Implemented attendance API module"
+  }
+]
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:8000/attendance/my-history?limit=10" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
+#### `GET /attendance`
+Super Admin and Manager endpoint to view workforce attendance across all employees, enriched with employee name and email.
+
+- **Access:** `Super Admin`, `Manager`
+- **Headers:** 
+  - `Authorization: Bearer <access_token>`
+- **Query Parameters (Optional):**
+  - `target_date` (string, format `YYYY-MM-DD`): Filter attendance on a specific calendar date (e.g. `?target_date=2026-11-19`).
+  - `user_id` (UUID): Filter attendance for a specific employee.
+- **Request Body:** None
+
+**Response `200 OK`:**
+```json
+[
+  {
+    "attendance_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "user_id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
+    "employee_name": "Priya Sharma",
+    "email": "priya.sharma@gjspaces.com",
+    "login_time": "2026-11-19T09:30:00Z",
+    "logout_time": "2026-11-19T18:00:00Z",
+    "to_do_list": "1. Implemented attendance API module"
+  }
+]
+```
+
+**cURL Example:**
+```bash
+curl -X GET "http://localhost:8000/attendance?target_date=2026-11-19" \
+  -H "Authorization: Bearer <access_token>"
+```
+
+---
+
 ## 4. End-to-End Testing Workflow
 
 ```mermaid
 flowchart TD
-    A["1. Login as Super Admin<br/>POST /auth/login"] --> B["2. Check My Profile<br/>GET /me"]
-    B --> C["3. List Master Roles<br/>GET /users/roles"]
-    C --> D["4. Create Manager or Employee<br/>POST /users"]
-    D --> E["5. List Workforce Users<br/>GET /users"]
-    E --> F["6. Login as Employee<br/>POST /auth/login"]
-    F --> G["7. Check Employee Profile<br/>GET /me"]
-    G --> H["8. Soft Delete User<br/>DELETE /users/{user_id}"]
+    A["1. Login Employee<br/>POST /auth/login"] --> B["2. Mark Attendance<br/>POST /attendance/mark-present"]
+    B --> C["3. Upload Tasks / To-Do<br/>PUT /attendance/tasks"]
+    C --> D["4. Check Status<br/>GET /attendance/today"]
+    D --> E["5. Clock Out<br/>POST /attendance/logout"]
+    E --> F["6. Manager Monitoring<br/>GET /attendance"]
 ```
 
-### 1. Login as Super Admin
+### 1. Login as Employee
 ```bash
 curl -s -X POST "http://localhost:8000/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email": "ankita.patil@shakham.com", "password": "password1234"}'
+  -d '{"email": "priya.sharma@gjspaces.com", "password": "Password123!"}'
 ```
 
-### 2. Verify Profile (`/me`)
+### 2. Mark Attendance as Present (Check-In)
+Captures `login_time`:
 ```bash
-curl -s -X GET "http://localhost:8000/me" \
-  -H "Authorization: Bearer <TOKEN>"
+curl -s -X POST "http://localhost:8000/attendance/mark-present" \
+  -H "Authorization: Bearer <EMPLOYEE_TOKEN>"
 ```
 
-### 3. Check Available Roles
+### 3. Upload Daily Tasks / To-Do List
 ```bash
-curl -s -X GET "http://localhost:8000/users/roles" \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-### 4. Create an Employee
-`status` automatically defaults to `"active"`, and omitting `role_id` defaults to `3` (`Employee`):
-```bash
-curl -s -X POST "http://localhost:8000/users" \
+curl -s -X PUT "http://localhost:8000/attendance/tasks" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <TOKEN>" \
+  -H "Authorization: Bearer <EMPLOYEE_TOKEN>" \
   -d '{
-    "first_name": "Priya",
-    "last_name": "Sharma",
-    "email": "priya.sharma@gjspaces.com",
-    "contact_number": "+919999888877",
-    "password": "Password123!"
+    "to_do_list": "1. Client onboarding\n2. Code review\n3. Tested endpoints"
   }'
 ```
 
-### 5. Soft Delete User
+### 4. Verify Today's Attendance
 ```bash
-curl -s -X DELETE "http://localhost:8000/users/<USER_ID>" \
-  -H "Authorization: Bearer <TOKEN>"
+curl -s -X GET "http://localhost:8000/attendance/today" \
+  -H "Authorization: Bearer <EMPLOYEE_TOKEN>"
+```
+
+### 5. Clock Out (Log Out)
+Captures `logout_time`:
+```bash
+curl -s -X POST "http://localhost:8000/attendance/logout" \
+  -H "Authorization: Bearer <EMPLOYEE_TOKEN>"
+```
+
+### 6. Manager Review (Super Admin / Manager Token)
+Inspect workforce attendance:
+```bash
+curl -s -X GET "http://localhost:8000/attendance" \
+  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>"
 ```

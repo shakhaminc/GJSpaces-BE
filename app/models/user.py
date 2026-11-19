@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import (
     ForeignKey,
     Integer,
@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.attendance import Attendance
 
 
 class Role(Base, TimestampMixin, SoftDeleteMixin):
@@ -35,3 +38,8 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
 
     # Relationship to role (Many-to-One)
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="selectin")
+
+    # Relationship to attendances (One-to-Many)
+    attendances: Mapped[List["Attendance"]] = relationship(
+        "Attendance", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )

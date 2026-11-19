@@ -1,4 +1,5 @@
 from app.core.database import Base
+from app.models.attendance import Attendance
 from app.models.base import SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 from app.models.user import Role, User
 
@@ -9,4 +10,5 @@ __all__ = [
     "SoftDeleteMixin",
     "Role",
     "User",
+    "Attendance",
 ]

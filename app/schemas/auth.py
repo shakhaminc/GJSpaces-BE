@@ -10,6 +10,8 @@ class LoginRequest(BaseModel):
     password: str = Field(..., example="password1234")
 
 
+
+
 class TokenResponse(BaseModel):
     message: str = Field("Authentication successful.", example="Authentication successful.")
     access_token: str
