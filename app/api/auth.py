@@ -7,9 +7,8 @@ from app.core.dependencies import get_current_user
 from app.core.security import create_access_token
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse
-from app.schemas.common import ResponseEnvelope
-from app.schemas.user import UserResponse
-from app.services.user_service import authenticate_user, serialize_user
+from app.schemas.user import UserMeResponse
+from app.services.user_service import authenticate_user, serialize_user_me
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Session"])
 
@@ -41,11 +40,9 @@ async def login(
     )
 
 
-@router.get("/me", response_model=ResponseEnvelope[UserResponse])
+@router.get("/me", response_model=UserMeResponse)
 async def get_current_user_profile(
     current_user: User = Depends(get_current_user)
 ):
-    """Retrieves authenticated profile and assigned role."""
-    return ResponseEnvelope(
-        data=serialize_user(current_user)
-    )
+    """Retrieves authenticated profile: role_name, first_name, last_name, email, contact_number."""
+    return serialize_user_me(current_user)

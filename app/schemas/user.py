@@ -14,9 +14,6 @@ class RoleNameEnum(str, Enum):
 class RoleResponse(BaseModel):
     id: int
     role_name: str
-    created_at: datetime
-    updated_at: datetime
-    is_deleted: bool
 
     class Config:
         from_attributes = True
@@ -28,22 +25,36 @@ class UserCreate(BaseModel):
     email: EmailStr = Field(..., example="rajesh@gjspaces.com")
     contact_number: str = Field(..., min_length=10, max_length=20, example="+919876543210")
     password: str = Field(..., min_length=6, example="SecurePassword123!")
-    role_id: int = Field(..., description="Role ID (e.g. 2 for Manager, 3 for Employee)")
+    role_id: Optional[int] = Field(None, description="Role ID (2 for Manager, 3 for Employee). Defaults to 3 (Employee) if omitted.")
+    role_name: Optional[str] = Field(None, description="Alternatively pass role name: 'Manager' or 'Employee'")
     status: str = Field("active", example="active")
 
 
-class UserResponse(BaseModel):
-    id: uuid.UUID
-    role_id: int
+class UserMeResponse(BaseModel):
     role_name: str
     first_name: str
     last_name: Optional[str] = None
     email: EmailStr
     contact_number: str
-    status: str
-    created_at: datetime
-    updated_at: datetime
-    is_deleted: bool
 
     class Config:
         from_attributes = True
+
+
+class UserResponse(BaseModel):
+    id: uuid.UUID
+    first_name: str
+    last_name: Optional[str] = None
+    email: EmailStr
+    contact_number: str
+    role_name: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class UserDeleteResponse(BaseModel):
+    message: str
+    user_id: uuid.UUID
+

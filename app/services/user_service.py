@@ -8,24 +8,32 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password
 from app.models.user import Role, User
-from app.schemas.user import RoleNameEnum, UserCreate, UserResponse
+from app.schemas.user import RoleNameEnum, UserCreate, UserMeResponse, UserResponse
 
 
 def serialize_user(user: User) -> UserResponse:
-    """Serializes a SQLAlchemy User entity to a UserResponse DTO."""
+    """Serializes a SQLAlchemy User entity to a clean UserResponse DTO."""
     role_name = user.role.role_name if user.role else "Unknown"
     return UserResponse(
         id=user.id,
-        role_id=user.role_id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        contact_number=user.contact_number,
+        role_name=role_name,
+        status=user.status,
+    )
+
+
+def serialize_user_me(user: User) -> UserMeResponse:
+    """Serializes a SQLAlchemy User entity to a clean UserMeResponse DTO containing only profile info."""
+    role_name = user.role.role_name if user.role else "Unknown"
+    return UserMeResponse(
         role_name=role_name,
         first_name=user.first_name,
         last_name=user.last_name,
         email=user.email,
         contact_number=user.contact_number,
-        status=user.status,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-        is_deleted=user.is_deleted,
     )
 
 
@@ -54,7 +62,7 @@ async def authenticate_user(
 async def create_user_with_role(
     db: AsyncSession, user_in: UserCreate
 ) -> User:
-    """Creates a new user and assigns the selected role."""
+    """Creates a new user and assigns the selected or default role."""
     # Check duplicate email or contact number
     dup_stmt = select(User).where(
         ((User.email == user_in.email) | (User.contact_number == user_in.contact_number))
@@ -68,14 +76,36 @@ async def create_user_with_role(
             detail = f"Contact number '{user_in.contact_number}' is already registered."
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
-    # Validate role_id
-    role_stmt = select(Role).where((Role.id == user_in.role_id) & (Role.is_deleted == False))
-    role = (await db.execute(role_stmt)).scalar_one_or_none()
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Role with ID '{user_in.role_id}' does not exist."
+    # Determine target role (by role_name, role_id, or default to Employee)
+    if user_in.role_name:
+        role_stmt = select(Role).where(
+            (Role.role_name.ilike(user_in.role_name.strip())) & (Role.is_deleted == False)
         )
+        role = (await db.execute(role_stmt)).scalar_one_or_none()
+        if not role:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role with name '{user_in.role_name}' does not exist."
+            )
+    elif user_in.role_id is not None:
+        role_stmt = select(Role).where((Role.id == user_in.role_id) & (Role.is_deleted == False))
+        role = (await db.execute(role_stmt)).scalar_one_or_none()
+        if not role:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role with ID '{user_in.role_id}' does not exist."
+            )
+    else:
+        # Default to Employee role
+        role_stmt = select(Role).where(
+            (Role.role_name == RoleNameEnum.EMPLOYEE.value) & (Role.is_deleted == False)
+        )
+        role = (await db.execute(role_stmt)).scalar_one_or_none()
+        if not role:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Default 'Employee' role is not initialized in database."
+            )
 
     # Prevent secondary Super Admin creation via standard endpoint
     if role.role_name.lower() == RoleNameEnum.SUPER_ADMIN.value.lower():
@@ -92,7 +122,7 @@ async def create_user_with_role(
         password=get_password_hash(user_in.password),
         email=user_in.email,
         contact_number=user_in.contact_number,
-        status=user_in.status,
+        status=user_in.status or "active",
         is_deleted=False,
     )
     db.add(new_user)

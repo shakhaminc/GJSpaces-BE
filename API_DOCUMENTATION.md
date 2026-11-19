@@ -20,43 +20,19 @@ The token is obtained via the `POST /auth/login` endpoint. It uses JSON Web Toke
 
 ### Default Seeded Super Admin Credentials
 On server startup, the database automatically initializes the default roles and seeds the initial Super Admin:
-- **Email:** `admin@gjspaces.com`
+- **Email:** `ankita.patil@shakham.com`
 - **Password:** `password1234`
 - **Contact Number:** `+910000000000`
 
 ---
 
-## 2. Standard Response Format
-
-All workforce and profile endpoints wrap response data inside a standard **Response Envelope**:
-
-### Successful Response Format
-```json
-{
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": { ... },
-  "meta": null
-}
-```
-
-### Error Response Format
-```json
-{
-  "detail": "Descriptive error message"
-}
-```
-
----
-
-## 3. Roles & RBAC Matrix
+## 2. Roles & RBAC Matrix
 
 | Role ID | Role Name | Description |
 | :---: | :--- | :--- |
 | **1** | `Super Admin` | Full root access across workforce, user creation, and soft-deletion. |
 | **2** | `Manager` | Administrative access to view workforce users, roles, and profiles. Cannot create or delete users. |
-| **3** | `Employee` | Standard workforce account. Can log in and view own profile (`/auth/me`). |
+| **3** | `Employee` | Standard workforce account. Can log in and view own profile (`/me`). |
 
 ### Permissions by Endpoint
 
@@ -65,8 +41,8 @@ All workforce and profile endpoints wrap response data inside a standard **Respo
 | `GET` | `/` | Public | Root service info |
 | `GET` | `/health` | Public | Container health check |
 | `POST` | `/auth/login` | Public | Authenticate user credentials & receive JWT |
-| `GET` | `/auth/me` | Super Admin, Manager, Employee | Retrieve own profile |
-| `GET` | `/users/roles` | Super Admin, Manager | List master roles |
+| `GET` | `/me` (or `/auth/me`) | Super Admin, Manager, Employee | Retrieve own profile (clean profile details) |
+| `GET` | `/users/roles` | Super Admin, Manager | List master roles (`id` and `role_name` only) |
 | `POST` | `/users` | Super Admin | Create Manager or Employee |
 | `GET` | `/users` | Super Admin, Manager | List all workforce users (with filters) |
 | `GET` | `/users/{user_id}` | Super Admin, Manager | Retrieve user details by UUID |
@@ -74,9 +50,9 @@ All workforce and profile endpoints wrap response data inside a standard **Respo
 
 ---
 
-## 4. Endpoints Specification
+## 3. Endpoints Specification
 
-### 4.1 System & Health
+### 3.1 System & Health
 
 ---
 
@@ -85,7 +61,6 @@ Returns service status and documentation URLs.
 
 - **Access:** Public
 - **Headers:** None
-- **Query / Path Parameters:** None
 - **Request Body:** None
 
 **Response `200 OK`:**
@@ -116,7 +91,7 @@ Uptime health check endpoint.
 
 ---
 
-### 4.2 Authentication & Session (`/auth`)
+### 3.2 Authentication & Session (`/auth`, `/me`)
 
 ---
 
@@ -132,7 +107,7 @@ Authenticates a user using email or contact number and password. Returns signed 
 **Sample Request Body:**
 ```json
 {
-  "email": "admin@gjspaces.com",
+  "email": "ankita.patil@shakham.com",
   "password": "password1234"
 }
 ```
@@ -142,7 +117,7 @@ Authenticates a user using email or contact number and password. Returns signed 
 ```json
 {
   "message": "Authentication successful.",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjM0MzA3MzQsInN1YiI6IjBhODRkZTBmLTk4MmUtNDdiMC04ODBiLWJkODBlNTVkM2RlNiIsInR5cGUiOiJhY2Nlc3MifQ..."
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
@@ -165,15 +140,15 @@ Authenticates a user using email or contact number and password. Returns signed 
 curl -X POST "http://localhost:8000/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@gjspaces.com",
+    "email": "ankita.patil@shakham.com",
     "password": "password1234"
   }'
 ```
 
 ---
 
-#### `GET /auth/me`
-Retrieves the authenticated user's profile and assigned role.
+#### `GET /me` (or `GET /auth/me`)
+Retrieves the logged-in user's profile information. Both URLs (`/me` and `/auth/me`) are supported.
 
 - **Access:** Any authenticated active user (`Super Admin`, `Manager`, `Employee`)
 - **Headers:** 
@@ -183,23 +158,11 @@ Retrieves the authenticated user's profile and assigned role.
 **Response `200 OK`:**
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": {
-    "id": "0a84de0f-982e-47b0-880b-bd80e55d3de6",
-    "role_id": 1,
-    "role_name": "Super Admin",
-    "first_name": "Super",
-    "last_name": "Admin",
-    "email": "admin@gjspaces.com",
-    "contact_number": "+910000000000",
-    "status": "active",
-    "created_at": "2026-11-17T03:55:00.123456Z",
-    "updated_at": "2026-11-17T03:55:00.123456Z",
-    "is_deleted": false
-  },
-  "meta": null
+  "role_name": "Super Admin",
+  "first_name": "Super",
+  "last_name": "Admin",
+  "email": "ankita.patil@shakham.com",
+  "contact_number": "+910000000000"
 }
 ```
 
@@ -213,18 +176,18 @@ Retrieves the authenticated user's profile and assigned role.
 
 **cURL Example:**
 ```bash
-curl -X GET "http://localhost:8000/auth/me" \
+curl -X GET "http://localhost:8000/me" \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ---
 
-### 4.3 Workforce & User Administration (`/users`)
+### 3.3 Workforce & User Administration (`/users`)
 
 ---
 
 #### `GET /users/roles`
-Retrieves available master roles for workforce assignment.
+Retrieves available master roles for workforce assignment. Returns only `id` and `role_name`.
 
 - **Access:** `Super Admin`, `Manager`
 - **Headers:** 
@@ -233,35 +196,20 @@ Retrieves available master roles for workforce assignment.
 
 **Response `200 OK`:**
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": [
-    {
-      "id": 1,
-      "role_name": "Super Admin",
-      "created_at": "2026-11-17T03:55:00.000000Z",
-      "updated_at": "2026-11-17T03:55:00.000000Z",
-      "is_deleted": false
-    },
-    {
-      "id": 2,
-      "role_name": "Manager",
-      "created_at": "2026-11-17T03:55:00.000000Z",
-      "updated_at": "2026-11-17T03:55:00.000000Z",
-      "is_deleted": false
-    },
-    {
-      "id": 3,
-      "role_name": "Employee",
-      "created_at": "2026-11-17T03:55:00.000000Z",
-      "updated_at": "2026-11-17T03:55:00.000000Z",
-      "is_deleted": false
-    }
-  ],
-  "meta": null
-}
+[
+  {
+    "id": 1,
+    "role_name": "Super Admin"
+  },
+  {
+    "id": 2,
+    "role_name": "Manager"
+  },
+  {
+    "id": 3,
+    "role_name": "Employee"
+  }
+]
 ```
 
 **cURL Example:**
@@ -274,21 +222,25 @@ curl -X GET "http://localhost:8000/users/roles" \
 
 #### `POST /users`
 Super Admin endpoint to create new Managers or Employees.
+- `status` defaults to `"active"` automatically.
+- `role_id` defaults to `3` (`Employee`) if omitted, or you can specify `2` for `Manager`.
+- You can alternatively provide `"role_name": "Manager"` instead of `role_id`.
 
 - **Access:** `Super Admin` only
 - **Headers:** 
   - `Content-Type: application/json`
   - `Authorization: Bearer <access_token>`
 - **Request Body Fields:**
-  - `first_name` (string, required, 1-100 chars): User's first name.
-  - `last_name` (string, optional, max 100 chars): User's last name.
-  - `email` (string, required, valid email): Unique email address.
-  - `contact_number` (string, required, 10-20 chars): Unique contact phone number.
-  - `password` (string, required, min 6 chars): Raw password (bcrypt hashed on storage).
-  - `role_id` (integer, required): Target role ID (`2` for Manager, `3` for Employee).
-  - `status` (string, optional, default `"active"`): Account status (`"active"` or `"inactive"`).
+  - `first_name` (string, required): User's first name.
+  - `last_name` (string, optional): User's last name.
+  - `email` (string, required): Unique email address.
+  - `contact_number` (string, required): Unique contact phone number.
+  - `password` (string, required, min 6 chars): Password.
+  - `role_id` (integer, optional, default: `3`): `2` for Manager, `3` for Employee.
+  - `role_name` (string, optional): Alternatively pass `"Manager"` or `"Employee"`.
+  - `status` (string, optional, default: `"active"`): Defaults to `"active"`.
 
-**Sample Request Body (Create a Manager):**
+**Sample Request Body (Creating a Manager):**
 ```json
 {
   "first_name": "Rajesh",
@@ -296,55 +248,43 @@ Super Admin endpoint to create new Managers or Employees.
   "email": "rajesh.kumar@gjspaces.com",
   "contact_number": "+919876543210",
   "password": "SecurePassword123!",
-  "role_id": 2,
-  "status": "active"
+  "role_id": 2
 }
 ```
 
-**Sample Request Body (Create an Employee):**
+**Sample Request Body (Creating an Employee - minimal):**
 ```json
 {
   "first_name": "Priya",
   "last_name": "Sharma",
   "email": "priya.sharma@gjspaces.com",
   "contact_number": "+919876543211",
-  "password": "SecurePassword123!",
-  "role_id": 3,
-  "status": "active"
+  "password": "SecurePassword123!"
 }
 ```
+*(Automatically assigns `role_name`: "Employee" and `status`: "active")*
 
 **Response `201 Created`:**
 ```json
 {
-  "success": true,
-  "statusCode": 201,
-  "message": "Manager 'Rajesh Kumar' created successfully.",
-  "data": {
-    "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
-    "role_id": 2,
-    "role_name": "Manager",
-    "first_name": "Rajesh",
-    "last_name": "Kumar",
-    "email": "rajesh.kumar@gjspaces.com",
-    "contact_number": "+919876543210",
-    "status": "active",
-    "created_at": "2026-11-17T09:30:15.000000Z",
-    "updated_at": "2026-11-17T09:30:15.000000Z",
-    "is_deleted": false
-  },
-  "meta": null
+  "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
+  "first_name": "Rajesh",
+  "last_name": "Kumar",
+  "email": "rajesh.kumar@gjspaces.com",
+  "contact_number": "+919876543210",
+  "role_name": "Manager",
+  "status": "active"
 }
 ```
 
 **Common Error Responses:**
-- `400 Bad Request`:
+- `400 Bad Request` (Invalid role):
   ```json
   {
     "detail": "Role with ID '99' does not exist."
   }
   ```
-- `403 Forbidden` (Trying to create another Super Admin):
+- `403 Forbidden` (Attempting to create another Super Admin):
   ```json
   {
     "detail": "Secondary Super Admin users cannot be created via this endpoint."
@@ -354,18 +294,6 @@ Super Admin endpoint to create new Managers or Employees.
   ```json
   {
     "detail": "Email 'rajesh.kumar@gjspaces.com' is already registered."
-  }
-  ```
-- `422 Unprocessable Entity` (Validation failure - short password or invalid email):
-  ```json
-  {
-    "detail": [
-      {
-        "loc": ["body", "email"],
-        "msg": "value is not a valid email address",
-        "type": "value_error"
-      }
-    ]
   }
   ```
 
@@ -380,100 +308,68 @@ curl -X POST "http://localhost:8000/users" \
     "email": "rajesh.kumar@gjspaces.com",
     "contact_number": "+919876543210",
     "password": "SecurePassword123!",
-    "role_id": 2,
-    "status": "active"
+    "role_id": 2
   }'
 ```
 
 ---
 
 #### `GET /users`
-Lists active workforce users. Allows optional query filtering.
+Lists active workforce users.
 
 - **Access:** `Super Admin`, `Manager`
 - **Headers:** 
   - `Authorization: Bearer <access_token>`
-- **Query Parameters (All Optional):**
-  - `role_id` (integer): Filter by Role ID (e.g. `?role_id=2`)
-  - `status` (string): Filter by user status (e.g. `?status=active` or `?status=inactive`)
+- **Query Parameters (Optional):**
+  - `role_id` (integer): Filter by Role ID (`?role_id=2` or `?role_id=3`)
+  - `status` (string): Filter by user status (`?status=active`)
 - **Request Body:** None
-
-**Example URL with filters:**
-`GET http://localhost:8000/users?role_id=2&status=active`
 
 **Response `200 OK`:**
 ```json
-{
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": [
-    {
-      "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
-      "role_id": 2,
-      "role_name": "Manager",
-      "first_name": "Rajesh",
-      "last_name": "Kumar",
-      "email": "rajesh.kumar@gjspaces.com",
-      "contact_number": "+919876543210",
-      "status": "active",
-      "created_at": "2026-11-17T09:30:15.000000Z",
-      "updated_at": "2026-11-17T09:30:15.000000Z",
-      "is_deleted": false
-    }
-  ],
-  "meta": null
-}
+[
+  {
+    "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
+    "first_name": "Rajesh",
+    "last_name": "Kumar",
+    "email": "rajesh.kumar@gjspaces.com",
+    "contact_number": "+919876543210",
+    "role_name": "Manager",
+    "status": "active"
+  }
+]
 ```
 
 **cURL Example:**
 ```bash
-curl -X GET "http://localhost:8000/users?role_id=2&status=active" \
+curl -X GET "http://localhost:8000/users" \
   -H "Authorization: Bearer <access_token>"
 ```
 
 ---
 
 #### `GET /users/{user_id}`
-Retrieves a single user's profile and assigned role by their UUID.
+Retrieves a single user's profile and assigned role by UUID.
 
 - **Access:** `Super Admin`, `Manager`
 - **Headers:** 
   - `Authorization: Bearer <access_token>`
 - **Path Parameters:**
-  - `user_id` (UUID string, required): Unique identifier of the user.
+  - `user_id` (UUID string, required)
 - **Request Body:** None
 
 **Response `200 OK`:**
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "message": "Operation completed successfully.",
-  "data": {
-    "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
-    "role_id": 2,
-    "role_name": "Manager",
-    "first_name": "Rajesh",
-    "last_name": "Kumar",
-    "email": "rajesh.kumar@gjspaces.com",
-    "contact_number": "+919876543210",
-    "status": "active",
-    "created_at": "2026-11-17T09:30:15.000000Z",
-    "updated_at": "2026-11-17T09:30:15.000000Z",
-    "is_deleted": false
-  },
-  "meta": null
+  "id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
+  "first_name": "Rajesh",
+  "last_name": "Kumar",
+  "email": "rajesh.kumar@gjspaces.com",
+  "contact_number": "+919876543210",
+  "role_name": "Manager",
+  "status": "active"
 }
 ```
-
-**Common Error Responses:**
-- `404 Not Found`:
-  ```json
-  {
-    "detail": "User with ID '7b0a7082-f54e-4e31-8bc4-72945d8b8a01' was not found."
-  }
-  ```
 
 **cURL Example:**
 ```bash
@@ -484,48 +380,22 @@ curl -X GET "http://localhost:8000/users/7b0a7082-f54e-4e31-8bc4-72945d8b8a01" \
 ---
 
 #### `DELETE /users/{user_id}`
-Soft deletes a user record (sets `is_deleted = true`, `deleted_at = now()`, and `status = 'inactive'`).
+Soft deletes a user record (sets `is_deleted = true`, `status = 'inactive'`).
 
 - **Access:** `Super Admin` only
 - **Headers:** 
   - `Authorization: Bearer <access_token>`
 - **Path Parameters:**
-  - `user_id` (UUID string, required): Unique identifier of the user to soft-delete.
+  - `user_id` (UUID string, required)
 - **Request Body:** None
 
 **Response `200 OK`:**
 ```json
 {
-  "success": true,
-  "statusCode": 200,
-  "message": "User 'Rajesh Kumar' has been soft-deleted successfully.",
-  "data": {
-    "user_id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01",
-    "is_deleted": true
-  },
-  "meta": null
+  "message": "User 'Rajesh Kumar' soft-deleted successfully.",
+  "user_id": "7b0a7082-f54e-4e31-8bc4-72945d8b8a01"
 }
 ```
-
-**Common Error Responses:**
-- `400 Bad Request` (Attempting to self-delete Super Admin account):
-  ```json
-  {
-    "detail": "Super Admin cannot delete their own account."
-  }
-  ```
-- `403 Forbidden` (Called by Manager or Employee):
-  ```json
-  {
-    "detail": "Operation not permitted. Required roles: ['Super Admin']"
-  }
-  ```
-- `404 Not Found`:
-  ```json
-  {
-    "detail": "User with ID '7b0a7082-f54e-4e31-8bc4-72945d8b8a01' was not found or already deleted."
-  }
-  ```
 
 **cURL Example:**
 ```bash
@@ -535,81 +405,55 @@ curl -X DELETE "http://localhost:8000/users/7b0a7082-f54e-4e31-8bc4-72945d8b8a01
 
 ---
 
-## 5. End-to-End Testing Workflow
-
-Here is the recommended step-by-step procedure to test the entire API lifecycle:
+## 4. End-to-End Testing Workflow
 
 ```mermaid
 flowchart TD
-    A["1. Login as Super Admin<br/>POST /auth/login"] --> B["2. Check My Profile<br/>GET /auth/me"]
+    A["1. Login as Super Admin<br/>POST /auth/login"] --> B["2. Check My Profile<br/>GET /me"]
     B --> C["3. List Master Roles<br/>GET /users/roles"]
-    C --> D["4. Create Manager & Employee<br/>POST /users"]
+    C --> D["4. Create Manager or Employee<br/>POST /users"]
     D --> E["5. List Workforce Users<br/>GET /users"]
-    E --> F["6. Login as Manager / Employee<br/>POST /auth/login"]
-    F --> G["7. Test Permissions & Restrictions"]
+    E --> F["6. Login as Employee<br/>POST /auth/login"]
+    F --> G["7. Check Employee Profile<br/>GET /me"]
     G --> H["8. Soft Delete User<br/>DELETE /users/{user_id}"]
 ```
 
 ### 1. Login as Super Admin
-Send credentials to `/auth/login`:
 ```bash
 curl -s -X POST "http://localhost:8000/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@gjspaces.com", "password": "password1234"}'
+  -d '{"email": "ankita.patil@shakham.com", "password": "password1234"}'
 ```
-*Save the `access_token` from the response.*
 
-### 2. Verify Session
-Verify that the token works and identifies you as Super Admin:
+### 2. Verify Profile (`/me`)
 ```bash
-curl -s -X GET "http://localhost:8000/auth/me" \
+curl -s -X GET "http://localhost:8000/me" \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
 ### 3. Check Available Roles
-Ensure roles are seeded:
 ```bash
 curl -s -X GET "http://localhost:8000/users/roles" \
   -H "Authorization: Bearer <TOKEN>"
 ```
-*(Confirms `id: 1` = Super Admin, `id: 2` = Manager, `id: 3` = Employee)*
 
 ### 4. Create an Employee
-Create a test employee user:
+`status` automatically defaults to `"active"`, and omitting `role_id` defaults to `3` (`Employee`):
 ```bash
 curl -s -X POST "http://localhost:8000/users" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <TOKEN>" \
   -d '{
-    "first_name": "Test",
-    "last_name": "Employee",
-    "email": "employee@gjspaces.com",
+    "first_name": "Priya",
+    "last_name": "Sharma",
+    "email": "priya.sharma@gjspaces.com",
     "contact_number": "+919999888877",
-    "password": "Password123!",
-    "role_id": 3,
-    "status": "active"
+    "password": "Password123!"
   }'
 ```
 
-### 5. Verify In Users List
-List all active employees:
+### 5. Soft Delete User
 ```bash
-curl -s -X GET "http://localhost:8000/users?role_id=3" \
+curl -s -X DELETE "http://localhost:8000/users/<USER_ID>" \
   -H "Authorization: Bearer <TOKEN>"
 ```
-
-### 6. Test RBAC Restriction
-Log in as the new employee (`employee@gjspaces.com` / `Password123!`), obtain the employee's JWT, and attempt to delete a user:
-```bash
-curl -s -X DELETE "http://localhost:8000/users/<USER_ID>" \
-  -H "Authorization: Bearer <EMPLOYEE_TOKEN>"
-```
-*Response will return `403 Forbidden` (`"Operation not permitted. Required roles: ['Super Admin']"`).*
-
-### 7. Soft Delete User
-Using the Super Admin token, delete the user:
-```bash
-curl -s -X DELETE "http://localhost:8000/users/<USER_ID>" \
-  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>"
-```
-*The user is now marked as `is_deleted = true`, `status = "inactive"`, and will no longer appear in `/users` or be able to log in.*
