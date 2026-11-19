@@ -7,6 +7,12 @@ from app.schemas.attendance import (
 )
 from app.schemas.auth import CurrentUser, LoginRequest, TokenResponse
 from app.schemas.common import ErrorEnvelope, ResponseEnvelope
+from app.schemas.lead_config import (
+    LeadConfigDeleteResponse,
+    LeadConfigItemCreate,
+    LeadConfigItemResponse,
+    LeadConfigItemUpdate,
+)
 from app.schemas.user import (
     RoleNameEnum,
     RoleResponse,
@@ -32,4 +38,9 @@ __all__ = [
     "AttendanceDetailResponse",
     "AttendanceLogoutResponse",
     "TaskUpdateRequest",
+    "MarkPresentRequest",
+    "LeadConfigItemCreate",
+    "LeadConfigItemUpdate",
+    "LeadConfigItemResponse",
+    "LeadConfigDeleteResponse",
 ]

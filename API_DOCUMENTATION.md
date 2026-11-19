@@ -53,6 +53,18 @@ On server startup, the database automatically initializes the default roles and 
 | `GET` | `/attendance/today` | Super Admin, Manager, Employee | View today's attendance record & tasks |
 | `GET` | `/attendance/my-history` | Super Admin, Manager, Employee | View own historical attendance logs |
 | `GET` | `/attendance` | Super Admin, Manager | View all workforce attendance with user info |
+| `POST` | `/lead-sources` | Super Admin | Create a new lead source |
+| `GET` | `/lead-sources` | Super Admin | List all active lead sources |
+| `PUT` | `/lead-sources/{id}` | Super Admin | Update lead source name/description |
+| `DELETE` | `/lead-sources/{id}` | Super Admin | Soft delete lead source |
+| `POST` | `/lead-categories` | Super Admin | Create a new lead category |
+| `GET` | `/lead-categories` | Super Admin | List all active lead categories |
+| `PUT` | `/lead-categories/{id}` | Super Admin | Update lead category name/description |
+| `DELETE` | `/lead-categories/{id}` | Super Admin | Soft delete lead category |
+| `POST` | `/lead-statuses` | Super Admin | Create a new lead status |
+| `GET` | `/lead-statuses` | Super Admin | List all active lead statuses |
+| `PUT` | `/lead-statuses/{id}` | Super Admin | Update lead status name/description |
+| `DELETE` | `/lead-statuses/{id}` | Super Admin | Soft delete lead status |
 
 ---
 
@@ -662,6 +674,172 @@ Super Admin and Manager endpoint to view workforce attendance across all employe
 curl -X GET "http://localhost:8000/attendance?target_date=2026-11-19" \
   -H "Authorization: Bearer <access_token>"
 ```
+
+---
+
+### 3.5 Lead Master Configuration (`/lead-sources`, `/lead-categories`, `/lead-statuses`)
+
+Master configuration endpoints for managing lead dropdowns and taxonomy in the CRM.
+
+---
+
+#### 1. Lead Sources (`/lead-sources`)
+
+##### `POST /lead-sources`
+Adds a new lead source (e.g. *Instagram, Website, Justdial*).
+- **Access:** `Super Admin` only
+- **Headers:** 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <access_token>`
+- **Request Body:**
+```json
+{
+  "name": "LinkedIn Ads",
+  "description": "Leads from LinkedIn B2B campaigns"
+}
+```
+- **Response `201 Created`:**
+```json
+{
+  "id": 7,
+  "name": "LinkedIn Ads",
+  "description": "Leads from LinkedIn B2B campaigns",
+  "is_active": true
+}
+```
+
+##### `GET /lead-sources`
+Retrieves all active lead sources for dropdown options.
+- **Access:** `Super Admin` only
+- **Headers:** `Authorization: Bearer <access_token>`
+- **Response `200 OK`:**
+```json
+[
+  { "id": 1, "name": "Instagram", "description": "Leads from Instagram ads & page", "is_active": true },
+  { "id": 2, "name": "Website", "description": "Organic form inquiries from company website", "is_active": true },
+  { "id": 3, "name": "Justdial", "description": "Inquiries from Justdial listings", "is_active": true },
+  { "id": 4, "name": "Facebook", "description": "Leads from Facebook ad campaigns", "is_active": true },
+  { "id": 5, "name": "Referral", "description": "Word-of-mouth or customer referral", "is_active": true },
+  { "id": 6, "name": "Direct Walk-in", "description": "Walk-in inquiries at project office", "is_active": true }
+]
+```
+
+##### `PUT /lead-sources/{id}`
+Updates a lead source's name, description, or active status.
+- **Access:** `Super Admin` only
+- **Path Parameter:** `id` (integer)
+- **Request Body:**
+```json
+{
+  "name": "Instagram Influencers",
+  "description": "Updated description",
+  "is_active": true
+}
+```
+
+##### `DELETE /lead-sources/{id}`
+Soft deletes a lead source.
+- **Access:** `Super Admin` only
+- **Response `200 OK`:**
+```json
+{
+  "message": "Lead Source 'LinkedIn Ads' deleted successfully.",
+  "id": 7
+}
+```
+
+---
+
+#### 2. Lead Categories (`/lead-categories`)
+
+##### `POST /lead-categories`
+Adds a new lead category (e.g. *Hot, Warm, Cold*).
+- **Access:** `Super Admin` only
+- **Request Body:**
+```json
+{
+  "name": "Ultra Hot",
+  "description": "Immediate decision maker ready to book"
+}
+```
+- **Response `201 Created`:**
+```json
+{
+  "id": 4,
+  "name": "Ultra Hot",
+  "description": "Immediate decision maker ready to book",
+  "is_active": true
+}
+```
+
+##### `GET /lead-categories`
+Retrieves all active lead categories.
+- **Access:** `Super Admin` only
+- **Response `200 OK`:**
+```json
+[
+  { "id": 1, "name": "Hot", "description": "High purchase intent, immediate follow-up required", "is_active": true },
+  { "id": 2, "name": "Warm", "description": "Interested buyer evaluating options", "is_active": true },
+  { "id": 3, "name": "Cold", "description": "Low engagement or future prospect", "is_active": true }
+]
+```
+
+##### `PUT /lead-categories/{id}`
+Updates a lead category.
+- **Access:** `Super Admin` only
+
+##### `DELETE /lead-categories/{id}`
+Soft deletes a lead category.
+- **Access:** `Super Admin` only
+
+---
+
+#### 3. Lead Statuses (`/lead-statuses`)
+
+##### `POST /lead-statuses`
+Adds a new lead lifecycle status.
+- **Access:** `Super Admin` only
+- **Request Body:**
+```json
+{
+  "name": "Token Advance Paid",
+  "description": "Client paid booking token amount"
+}
+```
+- **Response `201 Created`:**
+```json
+{
+  "id": 9,
+  "name": "Token Advance Paid",
+  "description": "Client paid booking token amount",
+  "is_active": true
+}
+```
+
+##### `GET /lead-statuses`
+Retrieves all active lead statuses.
+- **Access:** `Super Admin` only
+- **Response `200 OK`:**
+```json
+[
+  { "id": 1, "name": "New Lead", "description": "Newly created lead, not contacted yet", "is_active": true },
+  { "id": 2, "name": "Contacted", "description": "First call/message delivered to lead", "is_active": true },
+  { "id": 3, "name": "Follow-up", "description": "Follow-up conversation in progress", "is_active": true },
+  { "id": 4, "name": "Site Visit Scheduled", "description": "Appointment booked for property tour", "is_active": true },
+  { "id": 5, "name": "Site Visit Completed", "description": "Client attended property walkthrough", "is_active": true },
+  { "id": 6, "name": "Negotiation", "description": "Price or terms negotiation underway", "is_active": true },
+  { "id": 7, "name": "Closed Won", "description": "Booking finalized and deal closed", "is_active": true },
+  { "id": 8, "name": "Lost", "description": "Lead dropped or opted out", "is_active": true }
+]
+```
+
+##### `PUT /lead-statuses/{id}`
+Updates a lead status.
+- **Access:** `Super Admin` only
+
+##### `DELETE /lead-statuses/{id}`
+Soft deletes a lead status.
+- **Access:** `Super Admin` only
 
 ---
 

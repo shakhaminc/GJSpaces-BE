@@ -5,17 +5,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, Base, engine
+from app.services.lead_config_service import seed_default_lead_configs
 from app.services.user_service import seed_default_roles_and_super_admin
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: initializes database tables and seeds master roles & Super Admin."""
+    """Application lifespan: initializes database tables and seeds master roles, Super Admin, and lead configs."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
         await seed_default_roles_and_super_admin(session)
+        await seed_default_lead_configs(session)
 
     yield
 
