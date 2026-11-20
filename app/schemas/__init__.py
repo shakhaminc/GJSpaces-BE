@@ -5,7 +5,14 @@ from app.schemas.attendance import (
     MarkPresentRequest,
     TaskUpdateRequest,
 )
-from app.schemas.auth import CurrentUser, LoginRequest, TokenResponse
+from app.schemas.auth import (
+    CurrentUser,
+    LoginInitiateResponse,
+    LoginRequest,
+    ResendOTPRequest,
+    TokenResponse,
+    VerifyOTPRequest,
+)
 from app.schemas.common import ErrorEnvelope, ResponseEnvelope
 from app.schemas.lead_config import (
     LeadConfigDeleteResponse,

@@ -40,10 +40,12 @@ On server startup, the database automatically initializes the default roles and 
 | :--- | :--- | :--- | :--- |
 | `GET` | `/` | Public | Root service info |
 | `GET` | `/health` | Public | Container health check |
-| `POST` | `/auth/login` | Public | Authenticate user credentials & receive JWT |
+| `POST` | `/auth/login` | Public | Step 1: Verify credentials & send 6-digit OTP to email |
+| `POST` | `/auth/verify-otp` | Public | Step 2: Verify OTP & receive JWT access token |
+| `POST` | `/auth/resend-otp` | Public | Resend fresh 6-digit OTP to email |
 | `GET` | `/me` (or `/auth/me`) | Super Admin, Manager, Employee | Retrieve own profile (clean profile details) |
 | `GET` | `/users/roles` | Super Admin, Manager | List master roles (`id` and `role_name` only) |
-| `POST` | `/users` | Super Admin | Create Manager or Employee |
+| `POST` | `/users` | Super Admin | Create Manager or Employee (auto-emails credentials) |
 | `GET` | `/users` | Super Admin, Manager | List all workforce users (with filters) |
 | `GET` | `/users/{user_id}` | Super Admin, Manager | Retrieve user details by UUID |
 | `DELETE` | `/users/{user_id}` | Super Admin | Soft delete user |
@@ -114,7 +116,7 @@ Uptime health check endpoint.
 ---
 
 #### `POST /auth/login`
-Authenticates a user using email or contact number and password. Returns signed JWT access token.
+**Step 1 of Login:** Validates user credentials (email/contact number and password). Upon success, generates a 6-digit verification OTP and delivers it to the user's registered email address (valid for 10 minutes).
 
 - **Access:** Public
 - **Headers:** `Content-Type: application/json`
@@ -134,8 +136,9 @@ Authenticates a user using email or contact number and password. Returns signed 
 **Response `200 OK`:**
 ```json
 {
-  "message": "Authentication successful.",
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "message": "Verification OTP has been sent to your registered email (ankita.patil@shakham.com).",
+  "email": "ankita.patil@shakham.com",
+  "otp_sent": true
 }
 ```
 
@@ -160,6 +163,95 @@ curl -X POST "http://localhost:8000/auth/login" \
   -d '{
     "email": "ankita.patil@shakham.com",
     "password": "password1234"
+  }'
+```
+
+---
+
+#### `POST /auth/verify-otp`
+**Step 2 of Login:** Verifies the 6-digit OTP sent to the user's registered email. Upon successful verification, marks the OTP as used and issues the signed JWT access token.
+
+- **Access:** Public
+- **Headers:** `Content-Type: application/json`
+- **Request Body Schema:**
+  - `email` (string, required): Registered user email or contact number.
+  - `otp` (string, 6 characters, required): The 6-digit verification code received via email.
+
+**Sample Request Body:**
+```json
+{
+  "email": "ankita.patil@shakham.com",
+  "otp": "481920"
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "message": "Authentication successful.",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "role_name": "Super Admin",
+  "email": "ankita.patil@shakham.com"
+}
+```
+
+**Common Error Responses:**
+- `400 Bad Request`:
+  ```json
+  {
+    "detail": "Invalid or expired OTP. Please check the code or request a new one."
+  }
+  ```
+- `404 Not Found`:
+  ```json
+  {
+    "detail": "User with identifier 'ankita.patil@shakham.com' was not found."
+  }
+  ```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:8000/auth/verify-otp" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "ankita.patil@shakham.com",
+    "otp": "481920"
+  }'
+```
+
+---
+
+#### `POST /auth/resend-otp`
+Invalidates any pending OTP and issues a fresh 6-digit verification OTP delivered to the registered email.
+
+- **Access:** Public
+- **Headers:** `Content-Type: application/json`
+- **Request Body Schema:**
+  - `email` (string, required): Registered user email or contact number.
+
+**Sample Request Body:**
+```json
+{
+  "email": "ankita.patil@shakham.com"
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "message": "A fresh verification OTP has been sent to your registered email (ankita.patil@shakham.com).",
+  "email": "ankita.patil@shakham.com",
+  "otp_sent": true
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST "http://localhost:8000/auth/resend-otp" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "ankita.patil@shakham.com"
   }'
 ```
 
@@ -240,6 +332,7 @@ curl -X GET "http://localhost:8000/users/roles" \
 
 #### `POST /users`
 Super Admin endpoint to create new Managers or Employees.
+- **Automated Credential Email:** Asynchronously sends an onboarding email to the new user's registered email with their portal URL, email address, assigned role, and plaintext initial password.
 - `status` defaults to `"active"` automatically.
 - `role_id` defaults to `3` (`Employee`) if omitted, or you can specify `2` for `Manager`.
 - You can alternatively provide `"role_name": "Manager"` instead of `role_id`.

@@ -16,6 +16,7 @@ from app.schemas.user import (
     UserDeleteResponse,
     UserResponse,
 )
+from app.services.email_service import dispatch_background_email, send_user_credentials_email
 from app.services.user_service import create_user_with_role, serialize_user
 
 router = APIRouter(prefix="/users", tags=["Workforce & User Administration"])
@@ -39,8 +40,21 @@ async def create_user(
     current_user: User = Depends(require_roles([RoleNameEnum.SUPER_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ):
-    """Super Admin endpoint to create new Managers and Employees."""
+    """Super Admin endpoint to create new Managers and Employees. Automatically delivers login credentials via email."""
     new_user = await create_user_with_role(db, user_in)
+
+    # Deliver account credentials to the newly registered user via background email
+    recipient_name = f"{new_user.first_name} {new_user.last_name or ''}".strip()
+    role_name = new_user.role.role_name if new_user.role else "Employee"
+    dispatch_background_email(
+        send_user_credentials_email(
+            to_email=new_user.email,
+            recipient_name=recipient_name,
+            role_name=role_name,
+            password=user_in.password,
+        )
+    )
+
     return serialize_user(new_user)
 
 
