@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, Base, engine
+from app.services.form_service import seed_default_client_forms
 from app.services.lead_config_service import seed_default_lead_configs
 from app.services.user_service import seed_default_roles_and_super_admin
 
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as session:
         await seed_default_roles_and_super_admin(session)
         await seed_default_lead_configs(session)
+        await seed_default_client_forms(session)
 
     yield
 

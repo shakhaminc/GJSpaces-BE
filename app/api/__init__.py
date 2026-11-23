@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api import attendance, auth, lead_config, users
+from app.api import attendance, auth, forms, lead_config, users
 from app.api.auth import get_current_user_profile
 from app.schemas.user import UserMeResponse
 
@@ -20,5 +20,6 @@ api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(attendance.router)
 api_router.include_router(lead_config.router)
+api_router.include_router(forms.router)
 
 __all__ = ["api_router"]

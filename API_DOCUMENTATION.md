@@ -67,6 +67,15 @@ On server startup, the database automatically initializes the default roles and 
 | `GET` | `/lead-statuses` | Super Admin | List all active lead statuses |
 | `PUT` | `/lead-statuses/{id}` | Super Admin | Update lead status name/description |
 | `DELETE` | `/lead-statuses/{id}` | Super Admin | Soft delete lead status |
+| `POST` | `/forms` | Super Admin | Create a new configurable form |
+| `GET` | `/forms` | Super Admin, Manager, Employee | List all active forms (with field count) |
+| `GET` | `/forms/{form_id}` | Super Admin, Manager, Employee | Get form structure with ordered fields |
+| `PUT` | `/forms/{form_id}` | Super Admin | Update form title, description, or status |
+| `DELETE` | `/forms/{form_id}` | Super Admin | Soft delete a form and its fields |
+| `POST` | `/forms/{form_id}/fields` | Super Admin | Add a field to a form |
+| `PUT` | `/forms/fields/{field_id}` | Super Admin | Update field properties (name, type, options, etc.) |
+| `DELETE` | `/forms/fields/{field_id}` | Super Admin | Soft delete a field |
+| `PUT` | `/forms/{form_id}/reorder-fields` | Super Admin | Bulk reorder fields in a form |
 
 ---
 
@@ -989,4 +998,198 @@ Inspect workforce attendance:
 ```bash
 curl -s -X GET "http://localhost:8000/attendance" \
   -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>"
+```
+
+---
+
+## 3.6 Configurable Forms (`/forms`)
+
+Provides a dynamic form configuration engine where Super Admin can define, modify, reorder, and soft-delete forms and their fields.
+Pre-seeded with the client's 5 Google Forms:
+1. **Lead Format** (26 fields)
+2. **Project Form** (29 fields)
+3. **Plotting Form** (12 fields)
+4. **Commercial Project Form** (21 fields)
+5. **Loan Format** (9 fields)
+
+---
+
+### `GET /forms`
+Retrieves all active configured forms with their active field counts.
+
+- **Access:** `Super Admin`, `Manager`, `Employee`
+- **Query Params:** `is_active` (boolean, optional)
+
+**Response `200 OK`:**
+```json
+[
+  {
+    "id": "5521e888-269f-49dd-a532-f00415468cb9",
+    "form_title": "Lead Format",
+    "description": "Client lead capture form for prospective property buyers",
+    "is_active": true,
+    "field_count": 26,
+    "created_at": "2026-11-20T11:09:22.460000Z",
+    "updated_at": "2026-11-20T11:09:22.460000Z"
+  },
+  {
+    "id": "291bda47-a609-463c-852b-35fbdb1668f4",
+    "form_title": "Project Form",
+    "description": "Residential project details and developer registration form",
+    "is_active": true,
+    "field_count": 29,
+    "created_at": "2026-11-20T11:09:22.460000Z",
+    "updated_at": "2026-11-20T11:09:22.460000Z"
+  }
+]
+```
+
+---
+
+### `GET /forms/{form_id}`
+Retrieves a complete form definition along with all its active fields sorted by `display_order`.
+
+- **Access:** `Super Admin`, `Manager`, `Employee`
+
+**Response `200 OK`:**
+```json
+{
+  "id": "5521e888-269f-49dd-a532-f00415468cb9",
+  "form_title": "Lead Format",
+  "description": "Client lead capture form for prospective property buyers",
+  "is_active": true,
+  "field_count": 26,
+  "created_at": "2026-11-20T11:09:22.460000Z",
+  "updated_at": "2026-11-20T11:09:22.460000Z",
+  "fields": [
+    {
+      "id": "c1397bd7-d52a-4d64-af98-3f0af84cf26d",
+      "form_id": "5521e888-269f-49dd-a532-f00415468cb9",
+      "field_name": "Customer Name",
+      "field_type": "text",
+      "is_required": true,
+      "display_order": 1,
+      "options": null,
+      "is_active": true,
+      "created_at": "2026-11-20T11:09:22.460000Z",
+      "updated_at": "2026-11-20T11:09:22.460000Z"
+    },
+    {
+      "id": "90e1f487-b5ca-4a0b-9dfc-2ea90098bc14",
+      "form_id": "5521e888-269f-49dd-a532-f00415468cb9",
+      "field_name": "Configuration",
+      "field_type": "select",
+      "is_required": true,
+      "display_order": 4,
+      "options": ["1 BHK", "2 BHK", "3 BHK", "4 BHK", "Plotting", "Commercial (Shop,office space)", "Other"],
+      "is_active": true,
+      "created_at": "2026-11-20T11:09:22.460000Z",
+      "updated_at": "2026-11-20T11:09:22.460000Z"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /forms`
+Creates a new custom form.
+
+- **Access:** `Super Admin` only
+
+**Request Body:**
+```json
+{
+  "form_title": "Site Visit Feedback Form",
+  "description": "Feedback form collected after customer site visit",
+  "is_active": true
+}
+```
+
+---
+
+### `PUT /forms/{form_id}`
+Updates a form's title, description, or `is_active` status.
+
+- **Access:** `Super Admin` only
+
+**Request Body:**
+```json
+{
+  "form_title": "Updated Site Visit Feedback",
+  "description": "Updated description",
+  "is_active": true
+}
+```
+
+---
+
+### `DELETE /forms/{form_id}`
+Soft deletes a form and all associated fields.
+
+- **Access:** `Super Admin` only
+
+---
+
+### `POST /forms/{form_id}/fields`
+Adds a new field to an existing form.
+
+- **Access:** `Super Admin` only
+
+**Request Body:**
+```json
+{
+  "field_name": "Overall Rating",
+  "field_type": "select",
+  "is_required": true,
+  "display_order": 1,
+  "options": ["Excellent", "Good", "Average", "Poor"],
+  "is_active": true
+}
+```
+
+---
+
+### `PUT /forms/fields/{field_id}`
+Updates a field's properties.
+
+- **Access:** `Super Admin` only
+
+**Request Body:**
+```json
+{
+  "field_name": "Overall Rating (1 to 5 Stars)",
+  "options": ["1 Star", "2 Stars", "3 Stars", "4 Stars", "5 Stars"],
+  "is_required": true
+}
+```
+
+---
+
+### `DELETE /forms/fields/{field_id}`
+Soft deletes a specific field.
+
+- **Access:** `Super Admin` only
+
+---
+
+### `PUT /forms/{form_id}/reorder-fields`
+Bulk updates the display order of fields in a form.
+
+- **Access:** `Super Admin` only
+
+**Request Body:**
+```json
+{
+  "orders": [
+    {
+      "field_id": "c1397bd7-d52a-4d64-af98-3f0af84cf26d",
+      "display_order": 1
+    },
+    {
+      "field_id": "90e1f487-b5ca-4a0b-9dfc-2ea90098bc14",
+      "display_order": 2
+    }
+  ]
+}
 ```
